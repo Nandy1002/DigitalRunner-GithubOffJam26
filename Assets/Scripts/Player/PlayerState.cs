@@ -8,11 +8,13 @@ public enum PlayerStateEnum
     Run,
     OnAir,
     Attack,
-    wallRun,
+    WallRun,
     Slide,
     Crouch,
     Dead,
-    Disabled
+    Disabled,
+    // Append new states so existing serialized enum values keep their meaning.
+    Dashing
 }
 public class PlayerState : MonoBehaviour
 {

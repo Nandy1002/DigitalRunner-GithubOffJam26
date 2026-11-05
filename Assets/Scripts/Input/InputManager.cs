@@ -18,6 +18,7 @@ public sealed class InputManager : MonoBehaviour
     public bool ZoomHeld => Player.Gravity.IsPressed();
     public bool SprintHeld => forwardHoldTime >= sprintHoldDuration;
     public bool JumpPressedThisFrame => Player.Jump.WasPressedThisFrame();
+    public bool DashPressedThisFrame => Player.Dash.WasPressedThisFrame();
     public bool CrouchPressedThisFrame => Player.Crouch.WasPressedThisFrame();
     public bool CrouchHeld => Player.Crouch.IsPressed();
     public bool CrouchReleasedThisFrame => Player.Crouch.WasReleasedThisFrame();

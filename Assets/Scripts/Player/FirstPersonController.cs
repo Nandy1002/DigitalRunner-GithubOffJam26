@@ -5,6 +5,8 @@ public class FirstPersonController : MonoBehaviour
 {
     private Rigidbody rb;
     private PlayerState playerState;
+    private WallRunAbility wallRunAbility;
+    private float currentWallRunLean;
 
     [Header("Camera Movement")]
     public Camera playerCamera;
@@ -37,6 +39,7 @@ public class FirstPersonController : MonoBehaviour
     public float walkSpeed = 8f;
     public float maxVelocityChange = 15f;
     public float speedTransitionRate = 1.5f;
+    public LayerMask groundLayerMask = ~0;
 
     // Internal Variables
     private float currentMoveSpeed;
@@ -72,11 +75,13 @@ public class FirstPersonController : MonoBehaviour
     public bool enableJump = true;
     public float jumpPower = 10f;
     public float jumpBufferTime = 0.2f;
+    public float coyoteTime = 0.15f;
     public float risingGravityMultiplier = 1.5f;
     public float fallingGravityMultiplier = 2.5f;
 
     // Internal Variables
     private float jumpBufferRemaining;
+    private float coyoteTimeRemaining;
     private bool groundContactThisStep;
 
 
@@ -116,6 +121,7 @@ public class FirstPersonController : MonoBehaviour
     {
         rb = GetComponent<Rigidbody>();
         playerState = GetComponent<PlayerState>();
+        wallRunAbility = GetComponent<WallRunAbility>();
         standingRigidbodyConstraints = rb.constraints;
         playerCapsule = GetComponent<CapsuleCollider>();
 
@@ -225,7 +231,9 @@ public class FirstPersonController : MonoBehaviour
 
         if (InputManager.Instance.JumpPressedThisFrame)
         {
-            jumpBufferRemaining = jumpBufferTime;
+            // WallRunAbility consumes this press as a wall jump, so don't also buffer
+            // it for an automatic jump when the player lands.
+            jumpBufferRemaining = CurrentState == PlayerStateEnum.WallRun ? 0f : jumpBufferTime;
         }
         else if (jumpBufferRemaining > 0f)
         {
@@ -264,14 +272,18 @@ public class FirstPersonController : MonoBehaviour
 
         #endregion
 
-        if (enableJump && jumpBufferRemaining > 0f && IsGrounded)
+        bool canJump = enableJump && jumpBufferRemaining > 0f && (IsGrounded || coyoteTimeRemaining > 0f) && CanJumpFromCurrentState();
+        if (canJump)
         {
             Jump();
             jumpBufferRemaining = 0f;
+            coyoteTimeRemaining = 0f;
         }
 
         transform.localRotation = Quaternion.Euler(currentSlideTilt, yaw, 0f);
-        playerCamera.transform.localEulerAngles = new Vector3(pitch - currentSlideTilt, 0f, 0f);
+        float targetWallRunLean = wallRunAbility != null ? wallRunAbility.CameraLeanAngle : 0f;
+        currentWallRunLean = Mathf.MoveTowardsAngle(currentWallRunLean, targetWallRunLean, 180f * Time.deltaTime);
+        playerCamera.transform.localEulerAngles = new Vector3(pitch - currentSlideTilt, 0f, currentWallRunLean);
 
         if(enableHeadBob)
         {
@@ -281,10 +293,20 @@ public class FirstPersonController : MonoBehaviour
 
     private void FixedUpdate()
     {
-        bool groundedThisStep = groundContactThisStep && rb.linearVelocity.y <= 0.1f;
+        bool groundedThisStep = groundContactThisStep || CheckGroundedRaycast();
         groundContactThisStep = false;
 
-        if (!groundedThisStep)
+        if (groundedThisStep)
+        {
+            coyoteTimeRemaining = coyoteTime;
+        }
+        else if (coyoteTimeRemaining > 0f)
+        {
+            coyoteTimeRemaining = Mathf.Max(0f, coyoteTimeRemaining - Time.fixedDeltaTime);
+        }
+
+        // WallRunAbility applies its own reduced gravity while wall-running.
+        if (!groundedThisStep && CurrentState != PlayerStateEnum.WallRun)
         {
             float gravityMultiplier = rb.linearVelocity.y > 0f
                 ? risingGravityMultiplier
@@ -297,7 +319,7 @@ public class FirstPersonController : MonoBehaviour
         {
             // Keep the slide state through brief missed ground-contact samples. The slide timer
             // ends the slide; if the player has actually left the ground, EndSlide moves to OnAir.
-            if (!groundedThisStep && state != PlayerStateEnum.OnAir && state != PlayerStateEnum.Slide)
+            if (!groundedThisStep && coyoteTimeRemaining <= 0f && state != PlayerStateEnum.OnAir && state != PlayerStateEnum.Slide)
             {
                 SetState(PlayerStateEnum.OnAir);
             }
@@ -309,6 +331,12 @@ public class FirstPersonController : MonoBehaviour
         }
 
         if (!playerCanMove || !IsControllerLocomotionState(CurrentState))
+        {
+            return;
+        }
+
+        // Preserve wall jump momentum while in the push phase
+        if (wallRunAbility != null && wallRunAbility.HasWallJumpMomentum)
         {
             return;
         }
@@ -346,13 +374,29 @@ public class FirstPersonController : MonoBehaviour
         Vector3 worldMoveDirection = sliding ? moveDirection : transform.TransformDirection(moveDirection);
         Vector3 targetVelocity = worldMoveDirection * currentMoveSpeed;
         Vector3 velocityChange = targetVelocity - rb.linearVelocity;
-        velocityChange.x = Mathf.Clamp(velocityChange.x, -maxVelocityChange, maxVelocityChange);
-        velocityChange.z = Mathf.Clamp(velocityChange.z, -maxVelocityChange, maxVelocityChange);
+
+        float effectiveMaxChange = (state == PlayerStateEnum.OnAir)
+            ? maxVelocityChange * 0.25f
+            : maxVelocityChange;
+
+        velocityChange.x = Mathf.Clamp(velocityChange.x, -effectiveMaxChange, effectiveMaxChange);
+        velocityChange.z = Mathf.Clamp(velocityChange.z, -effectiveMaxChange, effectiveMaxChange);
         velocityChange.y = 0f;
 
         rb.AddForce(velocityChange, ForceMode.VelocityChange);
     }
+
+    private void OnCollisionEnter(Collision collision)
+    {
+        CheckGroundContacts(collision);
+    }
+
     private void OnCollisionStay(Collision collision)
+    {
+        CheckGroundContacts(collision);
+    }
+
+    private void CheckGroundContacts(Collision collision)
     {
         for (int i = 0; i < collision.contactCount; i++)
         {
@@ -363,6 +407,28 @@ public class FirstPersonController : MonoBehaviour
             }
         }
     }
+
+    private bool CheckGroundedRaycast()
+    {
+        if (playerCapsule == null)
+        {
+            return false;
+        }
+
+        Vector3 origin = new Vector3(
+            playerCapsule.bounds.center.x,
+            playerCapsule.bounds.min.y + 0.1f,
+            playerCapsule.bounds.center.z);
+
+        float radius = playerCapsule.radius * 0.9f;
+        float distance = 0.2f;
+
+        return Physics.SphereCast(
+            origin, radius, Vector3.down, out RaycastHit hit, distance,
+            groundLayerMask, QueryTriggerInteraction.Ignore)
+            && hit.normal.y > 0.5f;
+    }
+
     private void Jump()
     {
         if (!CanJumpFromCurrentState())
@@ -375,8 +441,13 @@ public class FirstPersonController : MonoBehaviour
             EndSlide(IsGrounded);
         }
 
+        Vector3 velocity = rb.linearVelocity;
+        velocity.y = 0f;
+        rb.linearVelocity = velocity;
+
         rb.AddForce(0f, jumpPower, 0f, ForceMode.Impulse);
         SetState(PlayerStateEnum.OnAir);
+        coyoteTimeRemaining = 0f;
     }
     private void Crouch()
     {

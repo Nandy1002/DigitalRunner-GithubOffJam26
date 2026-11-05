@@ -1,5 +1,36 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
+--- !u!1 &2934226592149344731
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 7856400271511875313}
+  m_Layer: 0
+  m_Name: GroundCheck
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &7856400271511875313
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2934226592149344731}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: -1.719, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 4459864851508666808}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &4459864850019384750
 GameObject:
   m_ObjectHideFlags: 0
@@ -15,6 +46,9 @@ GameObject:
   - component: {fileID: 4459864850019384741}
   - component: {fileID: 4448120371932864091}
   - component: {fileID: 4459864850019384740}
+  - component: {fileID: 8162785971175964314}
+  - component: {fileID: 1584490011142170115}
+  - component: {fileID: 8703617249031525962}
   m_Layer: 0
   m_Name: Player
   m_TagString: Player
@@ -32,7 +66,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 2, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalScale: {x: 1, y: 1.5, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 4459864851508666808}
@@ -186,6 +220,9 @@ MonoBehaviour:
   walkSpeed: 15
   maxVelocityChange: 20
   speedTransitionRate: 5
+  groundLayerMask:
+    serializedVersion: 2
+    m_Bits: 64
   enableSprint: 1
   sprintSpeed: 22
   sprintFOV: 80
@@ -199,8 +236,9 @@ MonoBehaviour:
   slidePostureTransitionSpeed: 0.8
   slideTiltTransitionSpeed: 180
   enableJump: 1
-  jumpPower: 10
+  jumpPower: 8
   jumpBufferTime: 0.2
+  coyoteTime: 0.15
   risingGravityMultiplier: 1.5
   fallingGravityMultiplier: 2.5
   enableCrouch: 0
@@ -213,6 +251,72 @@ MonoBehaviour:
   sprintBobSpeedMultiplier: 1.35
   sprintBobAmountMultiplier: 0.5
   bobAmount: {x: 0, y: 0.2, z: 0}
+--- !u!114 &8162785971175964314
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4459864850019384750}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8af83852921661c4dafd7af08849f5e1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DashAbility
+  dashDuration: 0.2
+  dashCooldown: 0.5
+  dashDistance: 12
+--- !u!114 &1584490011142170115
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4459864850019384750}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0e2d2f3a2518a8d48892ce267b420fa0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WallRunAbility
+  wallRunSpeed: 20
+  wallCheckDistance: 2
+  wallSnapSpeed: 6
+  wallClearance: 0.1
+  wallRunCameraRoll: 20
+  wallCheckHeight: 2
+  wallLayerMask:
+    serializedVersion: 2
+    m_Bits: 128
+  wallRunGravityMultiplier: 0.25
+  maxWallRunFallSpeed: 1.5
+  maxWallRunDuration: 2
+  groundCheck: {fileID: 7856400271511875313}
+  groundCheckRadius: 0.2
+  groundLayerMask:
+    serializedVersion: 2
+    m_Bits: 64
+  wallJumpUpForce: 6
+  wallJumpAwayForce: 5
+  wallJumpForwardMultiplier: 1
+  wallJumpRegrabCooldown: 0.75
+  wallJumpPushDuration: 0.45
+--- !u!114 &8703617249031525962
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4459864850019384750}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c5ad93a80d9b49d686ef26d492a8572a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerSpeedVFX
+  highSpeedEffectPrefab: {fileID: 8454343184612986527, guid: fe14f345a15ef2d4a9b98bda74b045f5, type: 3}
+  cameraForwardDistance: 5
+  cameraLocalOffset: {x: 0, y: 0}
+  cameraLocalEulerAngles: {x: 0, y: 0, z: 0}
+  highSpeedThreshold: 18
 --- !u!1 &4459864851310106424
 GameObject:
   m_ObjectHideFlags: 0
@@ -286,7 +390,7 @@ Camera:
   m_Depth: -1
   m_CullingMask:
     serializedVersion: 2
-    m_Bits: 4294967295
+    m_Bits: 247
   m_RenderingPath: -1
   m_TargetTexture: {fileID: 0}
   m_TargetDisplay: 0
@@ -329,7 +433,7 @@ MonoBehaviour:
     m_Bits: 1
   m_VolumeTrigger: {fileID: 0}
   m_VolumeFrameworkUpdateModeOption: 2
-  m_RenderPostProcessing: 0
+  m_RenderPostProcessing: 1
   m_Antialiasing: 0
   m_AntialiasingQuality: 2
   m_StopNaN: 0
@@ -380,5 +484,6 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 4459864851310106429}
+  - {fileID: 7856400271511875313}
   m_Father: {fileID: 4459864850019384738}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
